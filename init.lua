@@ -17,6 +17,12 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
+-- Theme
+vim.opt.termguicolors = true
+vim.cmd 'syntax enable'
+vim.g.dracula_colorterm = 0
+vim.cmd 'colorscheme dracula_pro'
+
 -- **************
 -- *  OPTIONS   *
 -- **************
@@ -72,15 +78,10 @@ end
 vim.keymap.set('n', '<leader>of', system_open, { desc = '[O]pen in [F]inder' })
 
 -- Disable arrows in normal mode
-local function create_navigation_keymap(key, message, highlight_group)
-  vim.keymap.set('n', key, function()
-    vim.notify(message, vim.log.levels.WARN, { title = 'Navigation Tip' })
-  end)
-end
-create_navigation_keymap('<left>', 'Use h to move!', 'WarningMsg')
-create_navigation_keymap('<right>', 'Use l to move!', 'WarningMsg')
-create_navigation_keymap('<up>', 'Use k to move!', 'WarningMsg')
-create_navigation_keymap('<down>', 'Use j to move!', 'WarningMsg')
+vim.keymap.set('n', '<Up>', '<Nop>', { silent = true })
+vim.keymap.set('n', '<Down>', '<Nop>', { silent = true })
+vim.keymap.set('n', '<Left>', '<Nop>', { silent = true })
+vim.keymap.set('n', '<Right>', '<Nop>', { silent = true })
 
 -- Move up or down and keep focus in center
 vim.keymap.set('n', '<C-u>', '<C-u>zz')
@@ -126,19 +127,6 @@ vim.api.nvim_create_autocmd('FileType', {
 -- * PLUGINS   *
 -- **************
 require('lazy').setup {
-  { -- Theme/ColorScheme
-    'dracula/vim',
-    priority = 1000,
-    init = function()
-      vim.cmd.colorscheme 'dracula'
-      vim.cmd [[
-        highlight Normal guibg=none
-        highlight NonText guibg=none
-        highlight Normal ctermbg=none
-        highlight NonText ctermbg=none
-      ]]
-    end,
-  },
   { -- Fuzzy Finder
     'nvim-telescope/telescope.nvim',
     event = 'VimEnter',
@@ -373,7 +361,7 @@ require('lazy').setup {
         typescript = { 'eslint_d' },
         javascriptreact = { 'eslint_d' },
         typescriptreact = { 'eslint_d' },
-        markdown = { 'markdownlint' },
+        markdown = { 'markdownlint-cli2' },
         go = { 'golangcilint' },
       }
       local lint_augroup = vim.api.nvim_create_augroup('lint', { clear = true })
@@ -444,11 +432,13 @@ require('lazy').setup {
             vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
           end
 
-          map('gd', vim.lsp.buf.definition, '[G]oto [D]efinition')
-          map('gr', vim.lsp.buf.references, '[G]oto [R]eferences')
-          map('gI', vim.lsp.buf.implementation, '[G]oto [I]mplementation')
+          local telescope = require 'telescope.builtin'
+          map('gd', telescope.lsp_definitions, '[G]oto [D]efinition')
+          map('gr', telescope.lsp_references, '[G]oto [R]eferences')
+          map('gI', telescope.lsp_implementations, '[G]oto [I]mplementation')
           map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
-          map('gy', vim.lsp.buf.type_definition, '[G]oto T[y]pe Definition')
+          map('gO', telescope.lsp_document_symbols, 'Open Document Symbols')
+          map('gW', telescope.lsp_workspace_symbols, 'Open Worspace Symbols')
           map('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
           map('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction', { 'n', 'x' })
           map('gK', function()
@@ -579,6 +569,7 @@ require('lazy').setup {
         'shfmt',
         'phpcs',
         'php-cs-fixer',
+        'sqlfluff',
       },
     },
     config = function(_, opts)
@@ -634,12 +625,13 @@ require('lazy').setup {
         'vim',
         'yaml',
         'dart',
+        'sql',
       },
       highlight = {
         enable = true,
       },
       indent = {
-        enable = true,
+        enable = false,
       },
       textobjects = {
         select = {
@@ -694,6 +686,10 @@ require('lazy').setup {
         },
       }
     end,
+  },
+  {
+    'numToStr/Comment.nvim',
+    opts = {},
   },
   { -- Useful plugin to show you pending keybinds.
     'folke/which-key.nvim',
@@ -901,10 +897,15 @@ require('lazy').setup {
   {
     'rcarriga/nvim-dap-ui',
     dependencies = { 'nvim-neotest/nvim-nio' },
-  -- stylua: ignore
-  keys = {
-    { "<leader>du", function() require("dapui").toggle({ }) end, desc = "Dap UI" },
-  },
+    keys = {
+      {
+        '<leader>du',
+        function()
+          require('dapui').toggle {}
+        end,
+        desc = 'Dap UI',
+      },
+    },
     opts = {},
     config = function(_, opts)
       local dap = require 'dap'
@@ -919,6 +920,61 @@ require('lazy').setup {
       dap.listeners.before.event_exited['dapui_config'] = function()
         dapui.close {}
       end
+    end,
+  },
+  { -- statusline
+    'nvim-lualine/lualine.nvim',
+    dependencies = { 'nvim-tree/nvim-web-devicons', 'AndreM222/copilot-lualine' },
+    config = function()
+      require('lualine').setup {
+        options = {
+          theme = 'auto',
+        },
+        sections = {
+          lualine_a = { 'mode' },
+          lualine_b = { 'branch', 'diff', 'diagnostics' },
+          lualine_c = { 'filename' },
+          lualine_x = { 'copilot', 'encoding', 'filetype' },
+          lualine_y = {},
+          lualine_z = { 'location' },
+        },
+      }
+    end,
+  },
+  {
+    'stevearc/oil.nvim',
+    dependencies = { 'nvim-tree/nvim-web-devicons' },
+    lazy = false,
+    config = function()
+      require('oil').setup()
+      vim.keymap.set('n', '<leader>.', '<CMD>Oil<CR>', { desc = 'Open parent directory' })
+    end,
+  },
+  {
+    'Shatur/neovim-session-manager',
+    lazy = false,
+    opts = {},
+    config = function()
+      local config = require 'session_manager.config'
+      require('session_manager').setup {
+        autoload_mode = config.AutoloadMode.CurrentDir,
+      }
+    end,
+  },
+  {
+    'LintaoAmons/scratch.nvim',
+    event = 'VeryLazy',
+    dependencies = {
+      { 'nvim-telescope/telescope.nvim' },
+    },
+    config = function()
+      require('scratch').setup {
+        file_picker = 'telescope',
+        window_cmd = 'rightbelow vsplit',
+        filetypes = { 'json', 'txt', 'sh' },
+      }
+      vim.keymap.set('n', '<leader>ss', '<cmd>Scratch<cr>')
+      vim.keymap.set('n', '<leader>so', '<cmd>ScratchOpen<cr>')
     end,
   },
   {
@@ -1020,6 +1076,88 @@ require('lazy').setup {
   },
   {
     'tjdevries/php.nvim',
+  },
+  {
+    'iamcco/markdown-preview.nvim',
+    cmd = { 'MarkdownPreviewToggle', 'MarkdownPreview', 'MarkdownPreviewStop' },
+    build = function()
+      vim.fn['mkdp#util#install']()
+    end,
+    keys = {
+      {
+        '<leader>cp',
+        ft = 'markdown',
+        '<cmd>MarkdownPreviewToggle<cr>',
+        desc = 'Markdown Preview',
+      },
+    },
+    config = function()
+      vim.cmd [[do FileType]]
+    end,
+  },
+  {
+    'MeanderingProgrammer/render-markdown.nvim',
+    opts = {
+      code = {
+        sign = false,
+        width = 'block',
+        right_pad = 1,
+      },
+      heading = {
+        sign = false,
+        icons = {},
+      },
+      checkbox = {
+        enabled = false,
+      },
+    },
+    ft = { 'markdown', 'norg', 'rmd', 'org', 'codecompanion' },
+    config = function(_, opts) end,
+  },
+  {
+    'tpope/vim-dadbod',
+    cmd = 'DB',
+  },
+  {
+    'kristijanhusak/vim-dadbod-completion',
+    dependencies = 'vim-dadbod',
+    ft = sql_ft,
+    init = function()
+      vim.api.nvim_create_autocmd('FileType', {
+        pattern = sql_ft,
+        callback = function()
+          local cmp = require 'cmp'
+          local sources = vim.tbl_map(function(source)
+            return { name = source.name }
+          end, cmp.get_config().sources)
+
+          table.insert(sources, { name = 'vim-dadbod-completion' })
+
+          cmp.setup.buffer { sources = sources }
+        end,
+      })
+    end,
+  },
+  {
+    'kristijanhusak/vim-dadbod-ui',
+    cmd = { 'DBUI', 'DBUIToggle', 'DBUIAddConnection', 'DBUIFindBuffer' },
+    dependencies = 'vim-dadbod',
+    keys = {
+      { '<leader>D', '<cmd>DBUIToggle<CR>', desc = 'Toggle DBUI' },
+    },
+    init = function()
+      local data_path = vim.fn.stdpath 'data'
+
+      vim.g.db_ui_auto_execute_table_helpers = 1
+      vim.g.db_ui_save_location = data_path .. '/dadbod_ui'
+      vim.g.db_ui_show_database_icon = true
+      vim.g.db_ui_tmp_query_location = data_path .. '/dadbod_ui/tmp'
+      vim.g.db_ui_use_nerd_fonts = true
+      vim.g.db_ui_use_nvim_notify = false
+      vim.g.db_ui_win_position = 'right'
+
+      vim.g.db_ui_execute_on_save = false
+    end,
   },
   {
     'zbirenbaum/copilot.lua',
