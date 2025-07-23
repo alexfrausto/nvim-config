@@ -26,7 +26,6 @@ vim.cmd 'colorscheme dracula_pro'
 -- **************
 -- *  OPTIONS   *
 -- **************
-
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
@@ -53,7 +52,6 @@ vim.opt.ignorecase = true
 vim.opt.incsearch = true
 vim.opt.infercase = true
 vim.opt.smartcase = true
-vim.opt.smartindent = true
 
 vim.opt.inccommand = 'split'
 vim.opt.scrolloff = 8
@@ -65,6 +63,11 @@ vim.opt.updatetime = 250
 vim.opt.timeoutlen = 300
 
 vim.opt.confirm = true
+
+vim.opt.inccommand = 'split'
+
+vim.opt.tabstop = 4
+vim.opt.shiftwidth = 4
 
 -- **************
 -- *  MAPPINGS  *
@@ -141,10 +144,21 @@ require('lazy').setup {
       },
       { 'nvim-telescope/telescope-ui-select.nvim' },
       { 'nvim-tree/nvim-web-devicons', enabled = true },
+      { 'nvim-treesitter/nvim-treesitter' },
+      { 'nvim-telescope/telescope-smart-history.nvim' },
+      { 'kkharji/sqlite.lua' },
     },
     config = function()
       require('telescope').setup {
+        defaults = {
+          history = {
+            path = vim.fn.expand '~/.local/state/nvim/history.db',
+            limit = 100,
+          },
+        },
         extensions = {
+          wrap_results = true,
+          fzf = {},
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
           },
@@ -154,11 +168,13 @@ require('lazy').setup {
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
+      pcall(require('telescope').load_extension, 'smart_history')
 
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
       vim.keymap.set('n', '<leader><leader>', builtin.find_files, { desc = '[F]ind [F]iles' })
-      vim.keymap.set('n', '<leader>/', builtin.live_grep, { desc = 'Find text' })
+      vim.keymap.set('n', '<leader>fg', builtin.live_grep, { desc = '[F]ind by [G]rep' })
+      vim.keymap.set('n', '<leader>/', builtin.current_buffer_fuzzy_find, { desc = 'Fuzzy find' })
     end,
   },
   { -- Undo history
@@ -168,15 +184,18 @@ require('lazy').setup {
     end,
   },
   {
-    'echasnovski/mini.pairs',
-    event = 'VeryLazy',
-    opts = {
-      modes = { insert = true, command = true, terminal = false },
-      skip_next = [=[[%w%%%'%[%"%.%`%$]]=],
-      skip_ts = { 'string' },
-      skip_unbalanced = true,
-      markdown = true,
-    },
+    'echasnovski/mini.nvim',
+    config = function()
+      require('mini.ai').setup()
+      require('mini.surround').setup()
+
+      local hipatterns = require 'mini.hipatterns'
+      hipatterns.setup {
+        highlighters = {
+          hex_color = hipatterns.gen_highlighter.hex_color(),
+        },
+      }
+    end,
   },
   {
     'folke/lazydev.nvim',
@@ -269,7 +288,7 @@ require('lazy').setup {
         desc = 'Previous Todo Comment',
       },
       { '<leader>tT', '<cmd>Trouble todo toggle<cr>', desc = '[T]oggle [T]odo' },
-      { '<leader>fT', '<cmd>TodoTelescope<cr>', desc = '[F]ind [T]odo' },
+      { '<leader>ft', '<cmd>TodoTelescope<cr>', desc = '[F]ind [T]odo' },
     },
   },
   { -- Autoformat
@@ -329,6 +348,7 @@ require('lazy').setup {
         opts = {},
       },
       'folke/lazydev.nvim',
+      'giuxtaposition/blink-cmp-copilot',
     },
     opts = {
       keymap = {
@@ -338,11 +358,17 @@ require('lazy').setup {
         nerd_font_variant = 'mono',
       },
       completion = {
-        documentation = { auto_show = false, auto_show_delay_ms = 500 },
+        documentation = { auto_show = true, auto_show_delay_ms = 500 },
       },
       sources = {
-        default = { 'lsp', 'path', 'snippets', 'lazydev' },
+        default = { 'copilot', 'lsp', 'path', 'snippets', 'lazydev' },
         providers = {
+          copilot = {
+            name = 'copilot',
+            module = 'blink-cmp-copilot',
+            score_offset = 100,
+            async = true,
+          },
           lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
         },
       },
@@ -631,7 +657,7 @@ require('lazy').setup {
         enable = true,
       },
       indent = {
-        enable = false,
+        enable = true,
       },
       textobjects = {
         select = {
@@ -716,6 +742,7 @@ require('lazy').setup {
     'hrsh7th/nvim-cmp',
     dependencies = {
       'rcarriga/cmp-dap',
+      { 'roobert/tailwindcss-colorizer-cmp.nvim', config = true },
     },
   },
   {
@@ -933,7 +960,7 @@ require('lazy').setup {
         sections = {
           lualine_a = { 'mode' },
           lualine_b = { 'branch', 'diff', 'diagnostics' },
-          lualine_c = { 'filename' },
+          lualine_c = { { 'filename', path = 1 } },
           lualine_x = { 'copilot', 'encoding', 'filetype' },
           lualine_y = {},
           lualine_z = { 'location' },
@@ -946,8 +973,31 @@ require('lazy').setup {
     dependencies = { 'nvim-tree/nvim-web-devicons' },
     lazy = false,
     config = function()
-      require('oil').setup()
-      vim.keymap.set('n', '<leader>.', '<CMD>Oil<CR>', { desc = 'Open parent directory' })
+      local detail = false
+      require('oil').setup {
+        default_file_explorer = false,
+        delete_to_trash = true,
+        keymaps = {
+          ['gd'] = {
+            desc = 'Toggle file detail view',
+            callback = function()
+              detail = not detail
+              if detail then
+                require('oil').set_columns { 'icon', 'permissions', 'size', 'mtime' }
+              else
+                require('oil').set_columns { 'icon' }
+              end
+            end,
+          },
+        },
+      }
+      vim.keymap.set('n', '<leader>.', function()
+        require('oil').open(nil, {
+          preview = {
+            split = 'belowright',
+          },
+        })
+      end, { desc = 'File explorer' })
     end,
   },
   {
@@ -1112,7 +1162,6 @@ require('lazy').setup {
       },
     },
     ft = { 'markdown', 'norg', 'rmd', 'org', 'codecompanion' },
-    config = function(_, opts) end,
   },
   {
     'tpope/vim-dadbod',
@@ -1121,10 +1170,8 @@ require('lazy').setup {
   {
     'kristijanhusak/vim-dadbod-completion',
     dependencies = 'vim-dadbod',
-    ft = sql_ft,
     init = function()
       vim.api.nvim_create_autocmd('FileType', {
-        pattern = sql_ft,
         callback = function()
           local cmp = require 'cmp'
           local sources = vim.tbl_map(function(source)
@@ -1164,22 +1211,49 @@ require('lazy').setup {
     cmd = 'Copilot',
     build = ':Copilot auth',
     event = 'BufReadPost',
-    opts = {
-      suggestion = {
-        enabled = not vim.g.ai_cmp,
-        auto_trigger = true,
-        hide_during_completion = vim.g.ai_cmp,
-        keymap = {
-          next = '<C-n>',
-          prev = '<C-p>',
-          accept = '<tab>',
+    config = function()
+      require('copilot').setup {
+        suggestion = {
+          enabled = false,
+          auto_trigger = true,
+          debounce = 75,
+          keymap = {
+            accept = false,
+            accept_word = false,
+            accept_line = false,
+            next = '<M-]>',
+            prev = '<M-[>',
+            dismiss = '<C-]>',
+          },
         },
-      },
-      panel = { enabled = false },
-      filetypes = {
-        markdown = true,
-        help = true,
-      },
-    },
+        panel = {
+          enabled = false,
+          auto_refresh = false,
+          keymap = {
+            jump_prev = '[[',
+            jump_next = ']]',
+            accept = '<CR>',
+            refresh = 'gr',
+            open = '<M-CR>',
+          },
+          layout = {
+            position = 'bottom',
+            ratio = 0.4,
+          },
+        },
+        filetypes = {
+          markdown = true,
+          help = true,
+        },
+        on_status_update = require('lualine').refresh,
+      }
+    end,
+  },
+  {
+    'zbirenbaum/copilot-cmp',
+    opts = {},
+    config = function()
+      require('copilot_cmp').setup()
+    end,
   },
 }
