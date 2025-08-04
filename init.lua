@@ -26,48 +26,44 @@ vim.cmd 'colorscheme dracula_pro'
 -- **************
 -- *  OPTIONS   *
 -- **************
+local o = vim.o
+
+o.laststatus = 3
+o.showmode = false
+o.splitkeep = 'screen'
+
+o.cursorline = true
+o.cursorlineopt = 'number'
+
+o.expandtab = true
+o.shiftwidth = 2
+o.smartindent = true
+o.tabstop = 2
+o.softtabstop = 2
+
+vim.opt.fillchars = { eob = ' ' }
+o.ignorecase = true
+o.smartcase = true
+
+o.number = true
+o.relativenumber = true
+o.numberwidth = 2
+o.ruler = false
+
+o.signcolumn = 'yes'
+o.splitbelow = true
+o.splitright = true
+o.timeoutlen = 400
+o.undofile = true
+
+o.updatetime = 250
+o.swapfile = false
+o.backup = false
+
+o.wrap = false
+
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
-
-vim.opt.number = true
-vim.opt.relativenumber = true
-
-vim.opt.mouse = 'a'
-
-vim.opt.showmode = false
-
-vim.opt.undofile = true
-vim.opt.swapfile = false
-vim.opt.backup = false
-
-vim.opt.breakindent = true
-vim.opt.cursorline = true
-
-vim.opt.wrap = false
-
-vim.opt.list = true
-vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
-
-vim.opt.ignorecase = true
-vim.opt.incsearch = true
-vim.opt.infercase = true
-vim.opt.smartcase = true
-
-vim.opt.inccommand = 'split'
-vim.opt.scrolloff = 8
-
-vim.opt.termguicolors = true
-
-vim.opt.signcolumn = 'yes'
-vim.opt.updatetime = 250
-vim.opt.timeoutlen = 300
-
-vim.opt.confirm = true
-
-vim.opt.inccommand = 'split'
-
-vim.opt.tabstop = 4
-vim.opt.shiftwidth = 4
 
 -- **************
 -- *  MAPPINGS  *
@@ -154,6 +150,16 @@ require('lazy').setup {
           history = {
             path = vim.fn.expand '~/.local/state/nvim/history.db',
             limit = 100,
+          },
+          prompt_prefix = '   ',
+          selection_caret = ' ',
+          entry_prefix = ' ',
+          sorting_strategy = 'ascending',
+          layout_config = {
+            horizontal = { prompt_position = 'top' },
+          },
+          mappings = {
+            n = { ['q'] = require('telescope.actions').close },
           },
         },
         extensions = {
@@ -322,6 +328,10 @@ require('lazy').setup {
         lua = { 'stylua' },
         php = { 'php_cs_fixer' },
         blade = { 'blade-formatter' },
+        javascript = { 'prettier' },
+        json = { 'prettier' },
+        html = { 'prettier' },
+        css = { 'prettier' },
       },
     },
   },
@@ -355,13 +365,14 @@ require('lazy').setup {
         preset = 'default',
       },
       appearance = {
-        nerd_font_variant = 'mono',
+        nerd_font_variant = 'normal',
       },
       completion = {
-        documentation = { auto_show = true, auto_show_delay_ms = 500 },
+        ghost_text = { enabled = true },
+        documentation = { auto_show = true, auto_show_delay_ms = 200, window = { border = 'single' } },
       },
       sources = {
-        default = { 'copilot', 'lsp', 'path', 'snippets', 'lazydev' },
+        default = { 'copilot', 'lsp', 'snippets', 'lazydev', 'buffer', 'path' },
         providers = {
           copilot = {
             name = 'copilot',
@@ -374,6 +385,7 @@ require('lazy').setup {
       },
       snippets = { preset = 'luasnip' },
       fuzzy = { implementation = 'lua' },
+      cmdline = { enabled = true },
       signature = { enabled = true },
     },
   },
@@ -383,10 +395,8 @@ require('lazy').setup {
     config = function()
       local lint = require 'lint'
       lint.linters_by_ft = {
-        javascript = { 'eslint_d' },
-        typescript = { 'eslint_d' },
-        javascriptreact = { 'eslint_d' },
-        typescriptreact = { 'eslint_d' },
+        javascript = { 'eslint' },
+        typescript = { 'eslint' },
         markdown = { 'markdownlint-cli2' },
         go = { 'golangcilint' },
       }
@@ -655,6 +665,7 @@ require('lazy').setup {
       },
       highlight = {
         enable = true,
+        use_languagetree = true,
       },
       indent = {
         enable = true,
@@ -1116,10 +1127,12 @@ require('lazy').setup {
     dependencies = {
       'nvim-lua/plenary.nvim',
     },
-    config = true,
     keys = {
       { '<leader>fd', ':FlutterDebug', '[F]lutter [D]ebug' },
     },
+    config = function()
+      require('flutter-tools').setup {}
+    end,
   },
   {
     'adalessa/laravel.nvim',
@@ -1264,5 +1277,12 @@ require('lazy').setup {
     config = function()
       require('copilot_cmp').setup()
     end,
+  },
+  {
+    'digitaltoad/vim-pug',
+  },
+  {
+    'folke/zen-mode.nvim',
+    opts = {},
   },
 }
